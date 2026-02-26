@@ -1,0 +1,85 @@
+name: Build MemProcFS
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+  workflow_dispatch:
+permissions: read-all
+jobs:
+  build:
+    name: Build Windows (${{ matrix.platform }})
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [x64, ARM64]
+        include:
+          - platform: x64
+            artifact_path: build-MemProcFS/files
+            artifact_name: MemProcFS-windows-x64
+          - platform: ARM64
+            artifact_path: build-MemProcFS/files/ARM64
+            artifact_name: MemProcFS-windows-arm64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          path: build-MemProcFS
+
+      - name: Checkout LeechCore
+        uses: actions/checkout@v4
+        with:
+          repository: ufrisk/LeechCore
+          path: LeechCore
+
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v2
+
+      - name: Build Release|${{ matrix.platform }}
+        working-directory: build-MemProcFS
+        run: >
+          msbuild MemProcFS.sln
+          /m
+          /p:Configuration=Release
+          /p:Platform=${{ matrix.platform }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: |
+            ${{ matrix.artifact_path }}
+            !build-MemProcFS/files/temp/**
+          if-no-files-found: error
+
+  release:
+    name: Create GitHub Release
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create release archives
+        run: |
+          cd artifacts
+          for dir in */; do
+            name="${dir%/}"
+            zip -r "../${name}.zip" "${dir}"
+          done
+          cd ..
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: "*.zip"
+          generate_release_notes: true
