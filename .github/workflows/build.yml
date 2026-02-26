@@ -35,6 +35,18 @@ jobs:
           repository: ufrisk/LeechCore
           path: LeechCore
 
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+          architecture: 'x64'
+
+      - name: Create Python path alias for vmmpyc
+        shell: pwsh
+        run: |
+          $src = python -c "import sys; print(sys.prefix)"
+          New-Item -ItemType Junction -Path "C:\Program Files\Python39" -Target $src -Force
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
@@ -55,31 +67,3 @@ jobs:
             !build-MemProcFS/files/temp/**
           if-no-files-found: error
 
-  release:
-    name: Create GitHub Release
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/v')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create release archives
-        run: |
-          cd artifacts
-          for dir in */; do
-            name="${dir%/}"
-            zip -r "../${name}.zip" "${dir}"
-          done
-          cd ..
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: "*.zip"
-          generate_release_notes: true
