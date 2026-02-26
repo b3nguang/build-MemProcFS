@@ -47,6 +47,20 @@ jobs:
           $src = python -c "import sys; print(sys.prefix)"
           New-Item -ItemType Junction -Path "C:\Program Files\Python39" -Target $src -Force
 
+      - name: Restore NuGet packages
+        working-directory: build-MemProcFS
+        shell: pwsh
+        run: |
+          dotnet restore vmmsharp\vmmsharp\vmmsharp.csproj
+          dotnet restore vmmsharp\example\vmmsharp_example.csproj
+
+      - name: Prepare LeechCore build directories
+        working-directory: build-MemProcFS
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path "files\lib" -Force
+          Copy-Item "includes\lib64\leechcore.lib" "files\lib\" -Force
+
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v2
 
